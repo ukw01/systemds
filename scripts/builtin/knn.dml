@@ -68,3 +68,16 @@ m_knn = function(Matrix[Double] X, Matrix[Double] T, Matrix[Double] Y, Integer Y
 {
 
 }
+
+
+# prepareKNNData:
+#   Do data prepare - [-1,1] transform for continues variable
+# Argument:
+# in_m_data                     input matrix as features
+prepareKNNData = function (matrix[double] in_m_data)
+  return(matrix[double] out_m_data)
+{
+    m_colmax = colMaxs(in_m_data);
+    m_colmin = colMins(in_m_data);
+    out_m_data = 2*( in_m_data - m_colmin )/( m_colmax - m_colmin ) - 1;
+}
