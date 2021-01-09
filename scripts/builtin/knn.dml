@@ -56,36 +56,35 @@
 #
 
 m_knn = function(
-    matrix[double] X,
-    matrix[double] T,
-    matrix[double] CL = NULL, #TODO how to set it to default / not used
-    int CLType = 0,
+    Matrix[Double] X,
+    Matrix[Double] T,
+    Matrix[Double] CL, #TODO how to set it to default / not used
+    Integer CLType = 0,
     #String NNRPath = " ", #TODO we dont need this or?
     #String PRPath = " ",  #TODO we dont need this or?
     Boolean trans_continuous = FALSE,
     Boolean select_k = FALSE,
-    int predict_con_tg = 0,
-    int k_min = 1,
-    int k_max = 100,
+    Integer predict_con_tg = 0,
+    Integer k_min = 1,
+    Integer k_max = 100,
     Boolean select_feature = FALSE,
-    Matrix START_SELECTED = NULL, #TODO how to set default not used
-    int feature_max = 10,
-    int interval = 1000,
-    Boolean feature_importance = False,
-    int k_value = 5,
-    int predict_con_tg = 0
+#--    Matrix[double] START_SELECTED = NULL, #TODO how to set default not used
+    Integer feature_max = 10,
+    Integer interval = 1000,
+    Boolean feature_importance = FALSE,
+    Integer k_value = 5,
+    Integer predict_con_tg = 0
     #String FEATURE_SELECTED = " ", #TODO we dont need this or?
     #String FEATURE_IMPORTANCE_VALUE = " "#TODO we dont need this or?
 )return(
-    matrix[double] NNR_matrix,
-    matrix[double] CL_matrix,
-    matrix[double] m_feature_importance
+    Matrix[Double] NNR_matrix
+#--    Matrix[Double] CL_matrix,
+#--    Matrix[Double] m_feature_importance
 ){
     Train = X;
-    Test = Y;
+    Test = T;
     #data prepare
     if( trans_continuous == 1 ){
-        print( "Do data prepare to transfer continuous variable to [-1,1] ..." );
         Train = prepareKNNData( Train);
         Test  = prepareKNNData( Test);
     }
@@ -95,13 +94,11 @@ m_knn = function(
     s_selected_k = 5;
     m_selected_feature = matrix(1,rows=1,cols=n_records);
     if( select_k == 1 | select_feature==1 ){
-        default_interval = as.integer( ceil( sqrt( n_records ) ) );
-        interval = ifdef( $interval,default_interval );
         print( "interval is " + interval );
         #parameter check
         # TODO like that? I am not sure about the CLType == 0
         #if(  CL == " " | CLType == " "){
-        if(  CL == NULL | CLType == 0){
+        if(CLType == 0){
             stop( "Y or Y_T must be set for k selection algorithm" );
         }
         #parameter re-define
@@ -140,16 +137,16 @@ m_knn = function(
             #    m_start_selected_feature = StartSelectedPath;
             #}
             # TODO Maybe like that
-            if( $START_SELECTED  == NULL){
-                m_start_selected_feature = matrix( 0, 1, n_features );
-            }else{
-                m_start_selected_feature = $START_SELECTED;
-            }
+#--            if( START_SELECTED  == NULL){
+#--                m_start_selected_feature = matrix( 0, 1, n_features );
+#--            }else{
+#--                m_start_selected_feature = START_SELECTED;
+#--            }
         }
         # CL = read( CLPath );
         # CLType = read( CLTypePath );
         # TODO we have to do it like that or
-        # type = as.integer( as.scalar( CLType[1,1] ) );
+        # type = as.Integer( as.scalar( CLType[1,1] ) );
         type = CLType;
         if( select_k == 1 & select_feature == 1){
             #Combined k and feature selection
@@ -178,7 +175,7 @@ m_knn = function(
         # CL = read( CLPath );
         # CLType = read( CLTypePath );
         # TODO we have to do it like that or
-        # type = as.integer( as.scalar( CLType[1,1] ) );
+        # type = as.Integer( as.scalar( CLType[1,1] ) );
         type = CLType;
         # TODO we dont have that path -> always execute?
         #FeatureImportanceExportPath = ifdef( $FEATURE_IMPORTANCE_VALUE," " );
@@ -210,7 +207,7 @@ m_knn = function(
         }
     }
 
-    NNR_matrix = naiveKNNsearch(Train,Test,k_value)
+    NNR_matrix = naiveKNNsearch(P=Train, Q=Test, K=k_value)
     #TODO we dont need this or?
     #if(NNRPath != " "){
     #    write( NNR_matrix,NNRPath,format=FMT );
@@ -218,39 +215,35 @@ m_knn = function(
 
     # TODO we do have CL not Paths -> check that?
     # main part for knn predicted
-    if( CLPath != " " ){
-    if (CL != NULL)
-        # CL = read ( CLPath );
-        #if(  CLTypePath == " " ){
-        if(  CLType == 0 ){
-            stop( "Set Y but Miss Y_T for label type" );
-        }
-        # CLType = read( CLTypePath );
-        # TODO changed that
-        #i_cl_type = as.integer( as.scalar( CLType[1,1] ) );
-        i_cl_type = CLType
+    # CL = read ( CLPath );
+    #if(  CLTypePath == " " ){
+    if(  CLType == 0 ){
+        stop( "Set Y but Miss Y_T for label type" );
     }
+    # CLType = read( CLTypePath );
+    # TODO changed that
+    #i_cl_type = as.Integer( as.scalar( CLType[1,1] ) );
+    i_cl_type = CLType
+
     CL_matrix = matrix( 0,nrow( Test ),1 );
     # TODO we dont have path
     #if( CLPath != " " ){
-    if( CL != NULL ){
-        parfor( i in 1:nrow( NNR_matrix ) ,check=0){
-            NNR_tmp_matrix = matrix( 0,k_value,1 );
-            for( j in 1:k_value ){
-                NNR_tmp_matrix[j,1] = CL[as.scalar( NNR_matrix[i,j] ),1] ;
-            }
-            t_cl_value = 0.0 #test data label value
-            if( i_cl_type == 2 ){
-                t_cl_value = as.scalar( rowIndexMax( t( table( NNR_tmp_matrix,1 ) ) ) )
-            }else{
-                if ( predict_con_tg == 0){
-                    t_cl_value = mean( NNR_tmp_matrix );
-                } else if(predict_con_tg == 1){
-                    t_cl_value = median( NNR_tmp_matrix );
-                }
-            }
-            CL_matrix[i,1] = t_cl_value;
+    parfor( i in 1:nrow( NNR_matrix ) ,check=0){
+        NNR_tmp_matrix = matrix( 0,k_value,1 );
+        for( j in 1:k_value ){
+            NNR_tmp_matrix[j,1] = CL[as.scalar( NNR_matrix[i,j] ),1] ;
         }
+        t_cl_value = 0.0 #test data label value
+        if( i_cl_type == 2 ){
+            t_cl_value = as.scalar( rowIndexMax( t( table( NNR_tmp_matrix,1 ) ) ) )
+        }else{
+            if ( predict_con_tg == 0){
+                t_cl_value = mean( NNR_tmp_matrix );
+            } else if(predict_con_tg == 1){
+                t_cl_value = median( NNR_tmp_matrix );
+            }
+        }
+        CL_matrix[i,1] = t_cl_value;
     }
     #TODO we dont need this or?
     #if( PRPath != " " ){
@@ -260,11 +253,11 @@ m_knn = function(
 
 #naive knn search implement
 naiveKNNsearch = function(
-    matrix[double] P,
-    matrix[double] Q,
-    integer K
+    Matrix[Double] P,
+    Matrix[Double] Q,
+    Integer K
 )return(
-    matrix[double] O
+    Matrix[Double] O
 ){
     num_records = nrow (P);
     num_features = ncol (P);
@@ -286,12 +279,12 @@ naiveKNNsearch = function(
 }
 #naive knn search for predict value only implement
 naiveKNNsearchForPredict = function(
-    matrix[double] P,
-    matrix[double] Q,
-    matrix[double] L,
-    integer K
+    Matrix[Double] P,
+    Matrix[Double] Q,
+    Matrix[Double] L,
+    Integer K
 )return(
-    matrix[double] OL
+    Matrix[Double] OL
 ){
     num_records = nrow (P);
     num_features = ncol (P);
@@ -320,10 +313,10 @@ naiveKNNsearchForPredict = function(
 # Argument:
 # in_m_data                     input matrix as features
 prepareKNNData = function (
-    matrix[double] in_m_data
+    Matrix[Double] in_m_data
      )
 return(
-    matrix[double] out_m_data
+    Matrix[Double] out_m_data
      )
 {
     m_colmax = colMaxs(in_m_data);
@@ -331,21 +324,21 @@ return(
     out_m_data = 2*( in_m_data - m_colmin )/( m_colmax - m_colmin ) - 1;
 }
 
-getKNeighbor = function (  matrix[double] in_m_data,
-        matrix[double] in_m_test_data,
-        matrix[double] in_m_cl,
-        integer in_i_k_max   )
-    return (  matrix[double] out_m_neighbor_value  ) {
+getKNeighbor = function (  Matrix[Double] in_m_data,
+        Matrix[Double] in_m_test_data,
+        Matrix[Double] in_m_cl,
+        Integer in_i_k_max   )
+    return (  Matrix[Double] out_m_neighbor_value  ) {
     #to naive
     m_search_result = naiveKNNsearchForPredict(in_m_data,in_m_test_data,in_m_cl,in_i_k_max + 1)
     out_m_neighbor_value = m_search_result[ ,2:in_i_k_max + 1]
 }
 
-getErr_k = function (  matrix[double] in_m_neighbor_value,
-        matrix[double] in_m_cl,
-        integer in_i_cl_type ,
-        integer in_i_k_min  )
-    return (  matrix[double] out_m_err  ){
+getErr_k = function (  Matrix[Double] in_m_neighbor_value,
+        Matrix[Double] in_m_cl,
+        Integer in_i_cl_type ,
+        Integer in_i_k_min  )
+    return (  Matrix[Double] out_m_err  ){
     i_col = ncol( in_m_neighbor_value  );
     i_row  = nrow( in_m_neighbor_value  );
 
@@ -364,7 +357,7 @@ getErr_k = function (  matrix[double] in_m_neighbor_value,
     #return err for each record and each k ( belong to range 1~max  );
 }
 /*
-eliminateModel = function (  matrix[double] in_j_err, matrix[double] in_j1_err   )
+eliminateModel = function (  Matrix[Double] in_j_err, Matrix[Double] in_j1_err   )
     return(  boolean out_b_inactived   ){
     out_b_inactived = FALSE;
     i_row  = nrow( in_j_err  );
@@ -385,7 +378,7 @@ eliminateModel = function (  matrix[double] in_j_err, matrix[double] in_j1_err  
     }
 
 }*/
-eliminateModel = function (  double s_err_mean, double s_err_vars, integer i_row  )
+eliminateModel = function (  double s_err_mean, double s_err_vars, Integer i_row  )
     return(  boolean out_b_inactived   ){
     out_b_inactived = FALSE;
     #alpha, beta, gamma, delta
@@ -415,14 +408,14 @@ eliminateModel = function (  double s_err_mean, double s_err_vars, integer i_row
 # Reture:
 # k                             output k value for k selection
 getSelectedKBase = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    integer k_min,
-    integer k_max,
-    integer interval  )
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Integer k_min,
+    Integer k_max,
+    Integer interval  )
 return(
-    integer k
+    Integer k
       )
 {
     b_continue_loop = TRUE;
@@ -500,7 +493,7 @@ return(
         print( "All k kick out, use min of range " + k_min  );
         k = k_min;
     }else if( i_active_model_number == 1  ){
-        k = k_min + as.integer( as.scalar( rowIndexMin( m_active_flag  )  )  ) - 1;
+        k = k_min + as.Integer( as.scalar( rowIndexMin( m_active_flag  )  )  ) - 1;
         print( "Get k, which value is " + k  );
     }else{
         m_err_for_order =
@@ -512,15 +505,15 @@ return(
                 ",err:" + as.scalar( m_err_for_order[i,1]  )  );
         }
         m_err_order = order( target=m_err_for_order,by=1,decreasing=FALSE,index.return=FALSE  );
-        k = as.integer( as.scalar( m_err_order[1,2]  )  );
+        k = as.Integer( as.scalar( m_err_order[1,2]  )  );
         print( "Get minimum LOOCV error, which value is " + k  );
     }
 }
 
-getErr = function (  matrix[double] in_m_neighbor_value,
-        matrix[double] in_m_cl,
-        integer in_i_cl_type )
-    return (  matrix[double] out_m_err ){
+getErr = function (  Matrix[Double] in_m_neighbor_value,
+        Matrix[Double] in_m_cl,
+        Integer in_i_cl_type )
+    return (  Matrix[Double] out_m_err ){
     i_col = ncol( in_m_neighbor_value );
     i_row  = nrow( in_m_neighbor_value );
 
@@ -551,15 +544,15 @@ getErr = function (  matrix[double] in_m_neighbor_value,
 # out_d_min_LOOCV               output err
 
 getSelectedFeature = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    matrix[double] in_m_init_selected,
-    integer in_i_max_select,
-    integer k_value,
-    integer interval )
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Matrix[Double] in_m_init_selected,
+    Integer in_i_max_select,
+    Integer k_value,
+    Integer interval )
 return(
-    matrix[double] out_m_selected_feature,
+    Matrix[Double] out_m_selected_feature,
     double out_d_min_LOOCV
      )
 {
@@ -726,17 +719,17 @@ return(
 # out_m_selected_feature        output matrix for feature selection
 # out_i_selected_k              output k value for k selection
 getSelectedFeatureAndK = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    matrix[double] in_m_init_selected,
-    integer in_i_max_select,
-    integer k_min,
-    integer k_max,
-    integer interval )
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Matrix[Double] in_m_init_selected,
+    Integer in_i_max_select,
+    Integer k_min,
+    Integer k_max,
+    Integer interval )
 return(
-    matrix[double] out_m_selected_feature,
-    integer out_i_selected_k
+    Matrix[Double] out_m_selected_feature,
+    Integer out_i_selected_k
      )
 {
     m_err = matrix( 0,1,k_max-k_min+1 );
@@ -756,20 +749,20 @@ return(
     }
 
     #Step 2. Output the combination of features and k with the smallest LOOCV error.
-    i_min_err_index = as.integer( as.scalar( rowIndexMin( m_err ) ) );
+    i_min_err_index = as.Integer( as.scalar( rowIndexMin( m_err ) ) );
     out_m_selected_feature = m_feature[i_min_err_index,];
     out_i_selected_k = i_min_err_index + k_min - 1;
     #print( "min err k is " + out_i_selected_k );
 }
 
 getFeatureImportance = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    integer k_value)
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Integer k_value)
 return(
-    matrix[double] out_m_feature_importance,
-    matrix[double] out_m_norm_feature_importance
+    Matrix[Double] out_m_feature_importance,
+    Matrix[Double] out_m_norm_feature_importance
      )
 {
     n_feature = ncol(in_m_data)
@@ -787,8 +780,7 @@ return(
         m_err[,i_feature] = m_tmp_err
     }
     out_m_feature_importance = colSums( m_err );
-    out_m_norm_feature_importance =
-        out_m_feature_importance / as.scalar(rowSums(out_m_feature_importance))
+    out_m_norm_feature_importance = out_m_feature_importance / as.scalar(rowSums(out_m_feature_importance))
 }
 
 
@@ -796,30 +788,30 @@ return(
 #   Do data prepare - [-1,1] transform for continues variable
 # Argument:
 # * in_m_data                     input matrix as features
-prepareKNNData = function(matrix[double] in_m_data)
-  return(matrix[double] out_m_data)
+prepareKNNData = function(Matrix[Double] in_m_data)
+  return(Matrix[Double] out_m_data)
 {
   m_colmax = colMaxs(in_m_data);
   m_colmin = colMins(in_m_data);
   out_m_data = 2 * (in_m_data - m_colmin ) / ( m_colmax - m_colmin ) - 1;
 }
 
-getKNeighbor = function(matrix[double] in_m_data,
-    matrix[double] in_m_test_data,
-    matrix[double] in_m_cl,
-    integer in_i_k_max)
-  return (matrix[double] out_m_neighbor_value)
+getKNeighbor = function(Matrix[Double] in_m_data,
+    Matrix[Double] in_m_test_data,
+    Matrix[Double] in_m_cl,
+    Integer in_i_k_max)
+  return (Matrix[Double] out_m_neighbor_value)
 {
   # to naive
   m_search_result = naiveKNNsearchForPredict(in_m_data, in_m_test_data, in_m_cl, in_i_k_max + 1)
   out_m_neighbor_value = m_search_result[ , 2 : in_i_k_max + 1]
 }
 
-getErr_k = function(matrix[double] in_m_neighbor_value,
-    matrix[double] in_m_cl,
-    integer in_i_cl_type,
-    integer in_i_k_min)
-  return (matrix[double] out_m_err)
+getErr_k = function(Matrix[Double] in_m_neighbor_value,
+    Matrix[Double] in_m_cl,
+    Integer in_i_cl_type,
+    Integer in_i_k_min)
+  return (Matrix[Double] out_m_err)
 {
   i_col = ncol(in_m_neighbor_value);
   i_row  = nrow(in_m_neighbor_value);
@@ -852,7 +844,7 @@ getErr_k = function(matrix[double] in_m_neighbor_value,
 # * i_row                         row number
 # Return:
 # * out_b_inactive                boolean value
-eliminateModel = function(double s_err_mean, double s_err_variance, integer i_row)
+eliminateModel = function(double s_err_mean, double s_err_variance, Integer i_row)
   return (boolean out_b_inactived)
 {
   out_b_inactive = FALSE;
@@ -883,13 +875,13 @@ eliminateModel = function(double s_err_mean, double s_err_variance, integer i_ro
 #
 # Return:
 # * k                             output k value for k selection
-getSelectedKBase = function(matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category, 0 = continuous
-    integer k_min,
-    integer k_max,
-    integer interval)
-  return (integer k)
+getSelectedKBase = function(Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category, 0 = continuous
+    Integer k_min,
+    Integer k_max,
+    Integer interval)
+  return (Integer k)
 {
   b_continue_loop = TRUE;
   i_iter = 1;
@@ -981,7 +973,7 @@ getSelectedKBase = function(matrix[double] in_m_data,
   }
   else if(i_active_model_number == 1)
   {
-    k = k_min + as.integer(as.scalar(rowIndexMin(m_active_flag))) - 1;
+    k = k_min + as.Integer(as.scalar(rowIndexMin(m_active_flag))) - 1;
     print( "Get k, which value is " + k  );
   }
   else
@@ -996,16 +988,16 @@ getSelectedKBase = function(matrix[double] in_m_data,
         ", err:" + as.scalar(m_err_for_order[i, 1]));
     }
     m_err_order = order(target = m_err_for_order, by = 1, decreasing = FALSE, index.return = FALSE);
-    k = as.integer(as.scalar(m_err_order[1, 2]));
+    k = as.Integer(as.scalar(m_err_order[1, 2]));
     print("Get minimum LOOCV error, which value is " + k);
   }
 }
 
 
-getErr = function (  matrix[double] in_m_neighbor_value,
-        matrix[double] in_m_cl,
-        integer in_i_cl_type )
-    return (  matrix[double] out_m_err ){
+getErr = function (  Matrix[Double] in_m_neighbor_value,
+        Matrix[Double] in_m_cl,
+        Integer in_i_cl_type )
+    return (  Matrix[Double] out_m_err ){
     i_col = ncol( in_m_neighbor_value );
     i_row  = nrow( in_m_neighbor_value );
 
@@ -1036,15 +1028,15 @@ getErr = function (  matrix[double] in_m_neighbor_value,
 # out_d_min_LOOCV               output err
 
 getSelectedFeature = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    matrix[double] in_m_init_selected,
-    integer in_i_max_select,
-    integer k_value,
-    integer interval )
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Matrix[Double] in_m_init_selected,
+    Integer in_i_max_select,
+    Integer k_value,
+    Integer interval )
 return(
-    matrix[double] out_m_selected_feature,
+    Matrix[Double] out_m_selected_feature,
     double out_d_min_LOOCV
      )
 {
@@ -1211,17 +1203,17 @@ return(
 # out_m_selected_feature        output matrix for feature selection
 # out_i_selected_k              output k value for k selection
 getSelectedFeatureAndK = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    matrix[double] in_m_init_selected,
-    integer in_i_max_select,
-    integer k_min,
-    integer k_max,
-    integer interval )
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Matrix[Double] in_m_init_selected,
+    Integer in_i_max_select,
+    Integer k_min,
+    Integer k_max,
+    Integer interval )
 return(
-    matrix[double] out_m_selected_feature,
-    integer out_i_selected_k
+    Matrix[Double] out_m_selected_feature,
+    Integer out_i_selected_k
      )
 {
     m_err = matrix( 0,1,k_max-k_min+1 );
@@ -1241,20 +1233,20 @@ return(
     }
 
     #Step 2. Output the combination of features and k with the smallest LOOCV error.
-    i_min_err_index = as.integer( as.scalar( rowIndexMin( m_err ) ) );
+    i_min_err_index = as.Integer( as.scalar( rowIndexMin( m_err ) ) );
     out_m_selected_feature = m_feature[i_min_err_index,];
     out_i_selected_k = i_min_err_index + k_min - 1;
     #print( "min err k is " + out_i_selected_k );
 }
 
 getFeatureImportance = function (
-    matrix[double] in_m_data,
-    matrix[double] in_m_data_target,
-    integer in_i_is_categorical, # 1 = category , 0 = continuous
-    integer k_value)
+    Matrix[Double] in_m_data,
+    Matrix[Double] in_m_data_target,
+    Integer in_i_is_categorical, # 1 = category , 0 = continuous
+    Integer k_value)
 return(
-    matrix[double] out_m_feature_importance,
-    matrix[double] out_m_norm_feature_importance
+    Matrix[Double] out_m_feature_importance,
+    Matrix[Double] out_m_norm_feature_importance
      )
 {
     n_feature = ncol(in_m_data)
