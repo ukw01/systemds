@@ -27,8 +27,8 @@
 # ---------------------------------------------------------------------------------------------
 # X                     Matrix   ---    N   The input matrix as features
 # T                     Matrix   ---    N   The input matrix for nearest neighbor search
-# Y                     Matrix   ---    Y   The input matrix as target
-# Y_T                   Integer  0      Y   The target type of matrix Y whether
+# CL                    Matrix   ---    Y   The input matrix as target
+# CLType                Integer  0      Y   The target type of matrix Y whether
 #                                           columns in Y are continuous ( =1 ) or
 #                                           categorical ( =2 ) or
 #                                           not specified ( =0 )
@@ -41,10 +41,7 @@
 # k_max                 int      100    Y   Max k value(  available if select_k = 1 )
 # select_feature        Boolean  FALSE  Y   Use feature selection algorithm to select feature
 #                                           ( TRUE means yes )
-
-
-# TODO: what type should that parameter have?
-# START_SELECTED        Matrix   ---    Y   feature selection initinal value
+# START_SELECTED        Matrix   ---    Y   feature selection initial value
 
 
 # feature_max           int      10     Y   Max feature selection
@@ -54,39 +51,38 @@
 # k_value               int      5      Y   k value for KNN, ignore if select_k enable
 # predict_con_tg        int      0      Y   Continuous  target predict function: mean(=0) or
 #                                           median(=1)
-# fmt                   String   "text" Y   Matrix output format for MB, ML, usually "text" or "csv"
 # ---------------------------------------------------------------------------------------------
 # OUTPUT: Matrix PR, Matrix NNR, Matrix FEATURE_IMPORTANCE_VALUE
 #
 
 m_knn = function(
-    matrix[double] Train,
-    matrix[double] Test,
-    matrix[double] CLType = " ",
-    matrix[double] CL = " ",
-    String NNRPath = " ",
-    String PRPath = " ",
-    int trans_continuous = 0,
+    matrix[double] X,
+    matrix[double] T,
+    matrix[double] CL = NULL, #TODO how to set it to default / not used
+    int CLType = 0,
+    #String NNRPath = " ", #TODO we dont need this or?
+    #String PRPath = " ",  #TODO we dont need this or?
+    Boolean trans_continuous = FALSE,
+    Boolean select_k = FALSE,
     int predict_con_tg = 0,
-    int k_value = 5,
-    String FMT = "csv",
-    int select_k = 0,
     int k_min = 1,
     int k_max = 100,
-    int select_feature = 0,
+    Boolean select_feature = FALSE,
+    Matrix START_SELECTED = NULL, #TODO how to set default not used
     int feature_max = 10,
     int interval = 1000,
-    int feature_importance = 0,
-    int predict_con_tg = 0,
-    String START_SELECTED = " ",
-    String FEATURE_SELECTED = " ",
-    String FEATURE_IMPORTANCE_VALUE = " "
+    Boolean feature_importance = False,
+    int k_value = 5,
+    int predict_con_tg = 0
+    #String FEATURE_SELECTED = " ", #TODO we dont need this or?
+    #String FEATURE_IMPORTANCE_VALUE = " "#TODO we dont need this or?
 )return(
     matrix[double] NNR_matrix,
     matrix[double] CL_matrix,
     matrix[double] m_feature_importance
 ){
-
+    Train = X;
+    Test = Y;
     #data prepare
     if( trans_continuous == 1 ){
         print( "Do data prepare to transfer continuous variable to [-1,1] ..." );
@@ -103,7 +99,9 @@ m_knn = function(
         interval = ifdef( $interval,default_interval );
         print( "interval is " + interval );
         #parameter check
-        if(  CL == " " | CLType == " "){
+        # TODO like that? I am not sure about the CLType == 0
+        #if(  CL == " " | CLType == " "){
+        if(  CL == NULL | CLType == 0){
             stop( "Y or Y_T must be set for k selection algorithm" );
         }
         #parameter re-define
@@ -133,17 +131,26 @@ m_knn = function(
                 "( number of record - 1 ) : " + k_value );
             }
             #Select feature only
-            StartSelectedPath = ifdef( $START_SELECTED," " );
-            SelectedPath = ifdef( $FEATURE_SELECTED," " );
-            if( StartSelectedPath == " " ){
-                m_start_selected_feature = matrix( 0,1,n_features );
+            # TODO rewrite this
+            #StartSelectedPath = ifdef( $START_SELECTED," " );
+            #SelectedPath = ifdef( $FEATURE_SELECTED," " );
+            #if( StartSelectedPath == " " ){
+            #    m_start_selected_feature = matrix( 0,1,n_features );
+            #}else{
+            #    m_start_selected_feature = StartSelectedPath;
+            #}
+            # TODO Maybe like that
+            if( $START_SELECTED  == NULL){
+                m_start_selected_feature = matrix( 0, 1, n_features );
             }else{
-                m_start_selected_feature = StartSelectedPath;
+                m_start_selected_feature = $START_SELECTED;
             }
         }
         # CL = read( CLPath );
         # CLType = read( CLTypePath );
-        type = as.integer( as.scalar( CLType[1,1] ) );
+        # TODO we have to do it like that or
+        # type = as.integer( as.scalar( CLType[1,1] ) );
+        type = CLType;
         if( select_k == 1 & select_feature == 1){
             #Combined k and feature selection
             print("Start combined k and feature selection ...");
@@ -170,15 +177,17 @@ m_knn = function(
         }
         # CL = read( CLPath );
         # CLType = read( CLTypePath );
-        type = as.integer( as.scalar( CLType[1,1] ) );
-        FeatureImportanceExportPath = ifdef( $FEATURE_IMPORTANCE_VALUE," " );
-        if(FeatureImportanceExportPath != " "){
-            [m_feature_importance,m_norm_feature_importance] =
-                getFeatureImportance(Train,CL,type,k_value);
+        # TODO we have to do it like that or
+        # type = as.integer( as.scalar( CLType[1,1] ) );
+        type = CLType;
+        # TODO we dont have that path -> always execute?
+        #FeatureImportanceExportPath = ifdef( $FEATURE_IMPORTANCE_VALUE," " );
+        #if(FeatureImportanceExportPath != " "){
+            [m_feature_importance,m_norm_feature_importance] = getFeatureImportance(Train,CL,type,k_value);
             #print( "feature importance is "  );
             #tmp = matrixDisplay( m_feature_importance );
-            write ( m_feature_importance,FeatureImportanceExportPath,format=FMT );
-        }
+            #write ( m_feature_importance,FeatureImportanceExportPath,format=FMT );
+        #}
     }
 
     # knn search
@@ -202,21 +211,29 @@ m_knn = function(
     }
 
     NNR_matrix = naiveKNNsearch(Train,Test,k_value)
-    if(NNRPath != " "){
-        write( NNR_matrix,NNRPath,format=FMT );
-    }
+    #TODO we dont need this or?
+    #if(NNRPath != " "){
+    #    write( NNR_matrix,NNRPath,format=FMT );
+    #}
 
+    # TODO we do have CL not Paths -> check that?
     # main part for knn predicted
     if( CLPath != " " ){
+    if (CL != NULL)
         # CL = read ( CLPath );
-        if(  CLTypePath == " " ){
+        #if(  CLTypePath == " " ){
+        if(  CLType == 0 ){
             stop( "Set Y but Miss Y_T for label type" );
         }
         # CLType = read( CLTypePath );
-        i_cl_type = as.integer( as.scalar( CLType[1,1] ) );
+        # TODO changed that
+        #i_cl_type = as.integer( as.scalar( CLType[1,1] ) );
+        i_cl_type = CLType
     }
     CL_matrix = matrix( 0,nrow( Test ),1 );
-    if( CLPath != " " ){
+    # TODO we dont have path
+    #if( CLPath != " " ){
+    if( CL != NULL ){
         parfor( i in 1:nrow( NNR_matrix ) ,check=0){
             NNR_tmp_matrix = matrix( 0,k_value,1 );
             for( j in 1:k_value ){
@@ -235,9 +252,10 @@ m_knn = function(
             CL_matrix[i,1] = t_cl_value;
         }
     }
-    if( PRPath != " " ){
-        write( CL_matrix,PRPath,format=FMT );
-    }
+    #TODO we dont need this or?
+    #if( PRPath != " " ){
+    #    write( CL_matrix,PRPath,format=FMT );
+    #}
 }
 
 #naive knn search implement
