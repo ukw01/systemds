@@ -31,8 +31,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.*;
 
 @RunWith(value = Parameterized.class)
 public class BuiltinKNNTest extends AutomatedTestBase
@@ -47,6 +46,8 @@ public class BuiltinKNNTest extends AutomatedTestBase
 
   private final static Double TEST_TOLERANCE = 1e-9;
 
+  public enum CLType { NOT_DEFINED, CONTINUOUS, CATEGORICAL }
+
   @Parameterized.Parameter()
   public int rows;
   @Parameterized.Parameter(1)
@@ -56,7 +57,7 @@ public class BuiltinKNNTest extends AutomatedTestBase
   @Parameterized.Parameter(3)
   public int query_cols;
   @Parameterized.Parameter(4)
-  public boolean continuous;
+  public CLType cl_type;
   @Parameterized.Parameter(5)
   public int k_value;
   @Parameterized.Parameter(6)
@@ -75,17 +76,18 @@ public class BuiltinKNNTest extends AutomatedTestBase
       // {rows, cols, query_rows, query_cols, continuous, k_value, sparsity}
       // {1000, 500, 35, 450, true, 7, 0.1},
       // {1000, 500, 35, 450, true, 7, 0.9}
-      {10, 10, 10, 10, true, 7, 1}
+      {10, 10, 10, 10, CLType.CONTINUOUS, 7, 1}
     });
   }
 
   @Test
   public void testKNN()
   {
-    runKNNTest(ExecMode.SINGLE_NODE);
+    HashMap<String, String> opt_params = new HashMap<>();
+    runKNNTest(opt_params, ExecMode.SINGLE_NODE);
   }
 
-  private void runKNNTest(ExecMode exec_mode)
+  private void runKNNTest(HashMap<String,String> optional_parameters, ExecMode exec_mode)
   {
     ExecMode platform_old = setExecMode(exec_mode);
 
@@ -102,12 +104,18 @@ public class BuiltinKNNTest extends AutomatedTestBase
     writeInputMatrixWithMTD("CL", CL, true);
 
     fullDMLScriptName = HOME + TEST_NAME + ".dml";
+    // mandatory parameters:
+    List<String> proArgs = new ArrayList<>();
+    proArgs.add("-nvargs");
+    proArgs.add("X=" + input("X"));
+    proArgs.add("T=" + input("Y"));
+
     programArgs = new String[] {"-nvargs",
-      "in_X=" + input("X"), "in_T=" + input("T"), "in_continuous=" + (continuous ? "1" : "0"), "in_k=" + Integer.toString(k_value),
+      "in_X=" + input("X"), "in_T=" + input("T"), "in_continuous=" + cl_type.ordinal(), "in_k=" + k_value,
       "out_B=" + output(OUTPUT_NAME)};
 
     fullRScriptName = HOME + TEST_NAME + ".R";
-    rCmd = getRCmd(inputDir(), (continuous ? "1" : "0"), Integer.toString(k_value),
+    rCmd = getRCmd(inputDir(), Integer.toString(cl_type.ordinal()), Integer.toString(k_value),
 			expectedDir());
 
     // TODO: add this line when both test scripts are implemented
